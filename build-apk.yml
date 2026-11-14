@@ -1,0 +1,44 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          unzip -oq MyVoIP.zip
+          cp -a MyVoIP/. .
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+
+      - name: Build release APKs
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Show APK sizes
+        run: |
+          for f in app/build/outputs/apk/release/*.apk; do
+            size=$(stat -c%s "$f")
+            echo "$f -> $((size / 1024 / 1024)) MB"
+            if [ "$size" -gt 20971520 ]; then
+              echo "::warning::$f is larger than 20 MB"
+            fi
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyVoIP-apk
+          path: app/build/outputs/apk/release/*.apk
